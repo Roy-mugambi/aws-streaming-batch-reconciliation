@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: mart_signal_strength_by_operator_daily
+    columns:
+      - name: process_date
+        tests: [not_null]
+      - name: postal_code
+        tests: [not_null]
+      - name: operator
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [process_date, postal_code, operator]
+
+  - name: mart_gps_precision_by_provider_daily
+    columns:
+      - name: process_date
+        tests: [not_null]
+      - name: provider
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [process_date, provider]
+
+  - name: mart_status_count_daily
+    columns:
+      - name: process_date
+        tests: [not_null]
+      - name: postal_code
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [process_date, postal_code, status]

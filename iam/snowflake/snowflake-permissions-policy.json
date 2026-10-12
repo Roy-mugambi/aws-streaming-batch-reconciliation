@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::roy-projects/mobile-network-lab/silver_batch/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::roy-projects",
+      "Condition": { "StringLike": { "s3:prefix": ["mobile-network-lab/silver_batch/*"] } }
+    }
+  ]
+}

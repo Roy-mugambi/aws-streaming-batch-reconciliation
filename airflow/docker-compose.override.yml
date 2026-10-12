@@ -1,0 +1,21 @@
+services:
+  scheduler:
+    volumes:
+      - ${HOME}/.aws:/home/astro/.aws:ro
+      - ${HOME}/.snowflake/snowflake_rsa_key.p8:/usr/local/airflow/snowflake_rsa_key.p8:ro
+      - ${HOME}/Desktop/Data Engineering Projects/batch/dbt:/usr/local/airflow/dbt:ro
+    environment:
+      - DBT_SNOWFLAKE_PRIVATE_KEY_PATH=/usr/local/airflow/snowflake_rsa_key.p8
+  triggerer:
+    volumes:
+      - ${HOME}/.aws:/home/astro/.aws:ro
+      - ${HOME}/.snowflake/snowflake_rsa_key.p8:/usr/local/airflow/snowflake_rsa_key.p8:ro
+  api-server:
+    volumes:
+      - ${HOME}/.aws:/home/astro/.aws:ro
+  dag-processor:
+    volumes:
+      - ${HOME}/.snowflake/snowflake_rsa_key.p8:/usr/local/airflow/snowflake_rsa_key.p8:ro
+      - ${HOME}/Desktop/Data Engineering Projects/batch/dbt:/usr/local/airflow/dbt:ro
+    environment:
+      - DBT_SNOWFLAKE_PRIVATE_KEY_PATH=/usr/local/airflow/snowflake_rsa_key.p8

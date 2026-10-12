@@ -1,0 +1,34 @@
+# =============================================================================
+# Python dependencies for the Mobile Coverage Batch Reconciliation Pipeline
+# =============================================================================
+#
+# Base image: astrocrpublic.azurecr.io/runtime:3.3-6 (ships Airflow 3.3.1)
+# Do NOT add apache-airflow itself — it's already installed.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Airflow provider packages
+# -----------------------------------------------------------------------------
+
+# AWS — S3 sensors, EMR Serverless operators, hooks. Pulls boto3.
+apache-airflow-providers-amazon>=9.4.0
+
+# Snowflake — SnowflakeOperator, SnowflakeHook. Pulls snowflake-connector-python.
+apache-airflow-providers-snowflake>=6.0.0
+
+# HTTP — HttpOperator for the dashboard cache invalidation call.
+apache-airflow-providers-http>=5.0.0
+
+# -----------------------------------------------------------------------------
+# dbt tooling — core plus Snowflake adapter (versions must match)
+# 1.9+ required for compatibility with Airflow 3.x's importlib-metadata>=7.0
+# -----------------------------------------------------------------------------
+dbt-core>=1.9.0,<2.0.0
+dbt-snowflake>=1.9.0,<2.0.0
+
+# -----------------------------------------------------------------------------
+# Cosmos — parses your dbt project and turns each model into its own Airflow
+# task. 1.8+ required for Airflow 3.x compatibility.
+# -----------------------------------------------------------------------------
+astronomer-cosmos>=1.8.0
+aiobotocore[boto3]

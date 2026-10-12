@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: staging_raw
+    database: mobile_coverage
+    schema: staging
+    tables:
+      - name: raw_signal_strength_by_operator
+        columns:
+          - name: process_date
+            tests: [not_null]
+      - name: raw_gps_precision_by_provider
+        columns:
+          - name: process_date
+            tests: [not_null]
+      - name: raw_status_count
+        columns:
+          - name: process_date
+            tests: [not_null]

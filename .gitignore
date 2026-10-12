@@ -1,0 +1,52 @@
+# Secrets
+*.p8
+*.pem
+*.key
+*.p12
+rsa_key*
+snowflake_rsa_key*
+*.pub
+.env
+.env.*
+!.env.example
+**/profiles.yml
+!**/profiles.example.yml
+.aws/
+credentials
+airflow_settings.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Airflow / Astro
+logs/
+airflow.db
+airflow-webserver.pid
+standalone_admin_password.txt
+
+# dbt
+target/
+dbt_packages/
+dbt/.user.yml
+
+# Data and logs
+spark-warehouse/
+metastore_db/
+*.parquet
+*.gz
+*.zip
+*.log
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadBronze",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::roy-projects/mobile-network-lab/bronze/raw-events/*"
+    },
+    {
+      "Sid": "ReadWriteSilverBatch",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::roy-projects/mobile-network-lab/silver_batch/*"
+    },
+    {
+      "Sid": "WriteJobLogs",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject"],
+      "Resource": "arn:aws:s3:::roy-projects/mobile-network-lab/emr-logs/*"
+    },
+    {
+      "Sid": "ReadJobScript",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::roy-projects/mobile-network-lab/emr-scripts/*"
+    },
+    {
+      "Sid": "ListBucketScoped",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::roy-projects",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "mobile-network-lab/bronze/raw-events/*",
+            "mobile-network-lab/silver_batch/*",
+            "mobile-network-lab/emr-logs/*",
+            "mobile-network-lab/emr-scripts/*"
+          ]
+        }
+      }
+    }
+  ]
+}
