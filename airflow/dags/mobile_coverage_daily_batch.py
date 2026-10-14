@@ -37,6 +37,7 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.empty import EmptyOperator
+from airflow.sdk import Param
 from airflow.providers.amazon.aws.sensors.s3 import S3KeySensor #Used by task: wait_for_bronze
 from airflow.providers.amazon.aws.operators.emr import EmrServerlessStartJobOperator #Used by task: spark_batch_aggregate
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator #Load to snowflake task
@@ -46,6 +47,21 @@ from cosmos.constants import ExecutionMode
 
 DBT_PROJECT_DIR = "/usr/local/airflow/dbt"
 
+# -----------------------------------------------------------------------------
+# Which day does this run process?
+# -----------------------------------------------------------------------------
+# Airflow 3 schedules cron strings with CronTriggerTimetable, so
+# data_interval_start is the run time itself (e.g. 13 Oct 02:00), not the
+# previous day. The target date is therefore explicit: the `target_date`
+# param if supplied (manual reruns/backfills), otherwise the day before the run.
+_TARGET = "(params.target_date or macros.ds_add(dag_run.run_after | ds, -1))"
+TARGET_DATE = "{{ " + _TARGET + " }}"
+
+BRONZE_DAY_KEY = (
+    "{% set d = " + _TARGET + " %}"
+    "mobile-network-lab/bronze/raw-events/"
+    "year={{ d[:4] }}/month={{ d[5:7] }}/day={{ d[8:10] }}/*.gz"
+)
 # -----------------------------------------------------------------------------
 # DAG-level defaults
 # -----------------------------------------------------------------------------
@@ -88,33 +104,35 @@ with DAG(
     schedule="0 2 * * *",
     catchup=False,
     max_active_runs=1,
+        params={
+        "target_date": Param(
+            None,
+            type=["null", "string"],
+            format="date",
+            description="Day to process (YYYY-MM-DD). Leave empty for yesterday.",
+        ),
+    },
     tags=["mobile-coverage", "batch", "reconciliation"],
     doc_md=__doc__,  # renders this file's top docstring in the DAG's UI page
 ) as dag:
 
     # -------------------------------------------------------------------------
-    # 1. Wait for the previous day's bronze partition to be complete
+    # 1. Wait for the target day's bronze data
     # -------------------------------------------------------------------------
-    # Firehose has no _SUCCESS marker, so completeness is inferred by
-    # checking for the LAST hour partition of the day (hour=23). Combined
-    # with the 2 AM UTC schedule (2hr cushion past midnight for Firehose's
-    # buffer flush to land), this is a reasonably safe proxy for "day complete."
-
+    # Firehose partitions by ARRIVAL time, not event time, and writes no
+    # _SUCCESS marker. Completeness comes from the schedule: the run starts
+    # at 02:00 UTC, far past Firehose's buffer interval, so yesterday's
+    # files have landed. The sensor guards the remaining case: no data
+    # arrived for that day at all. The wildcard matches any hour folder.
     wait_for_bronze = S3KeySensor(
-    task_id="wait_for_bronze",
-    bucket_name="roy-projects",
-    bucket_key=(
-        "mobile-network-lab/bronze/raw-events/"
-        "year={{ data_interval_start.strftime('%Y') }}/"
-        "month={{ data_interval_start.strftime('%m') }}/"
-        "day={{ data_interval_start.strftime('%d') }}/"
-        "hour=23/*.gz"
-    ),
-    wildcard_match=True,
-    aws_conn_id="aws_default",
-    deferrable=True,
-    timeout=60 * 60 * 3,      # 3 hours — generous ceiling before alerting/failing
-    poke_interval=60 * 5,     # only relevant in non-deferrable fallback; harmless here
+        task_id="wait_for_bronze",
+        bucket_name="roy-projects",
+        bucket_key=BRONZE_DAY_KEY,
+        wildcard_match=True,
+        aws_conn_id="aws_default",
+        deferrable=True,
+        timeout=60 * 30,
+        poke_interval=60 * 5,
 )
 
     # -------------------------------------------------------------------------
@@ -130,7 +148,7 @@ with DAG(
         job_driver={
             "sparkSubmit": {
                 "entryPoint": "s3://roy-projects/mobile-network-lab/emr-scripts/batch_aggregate.py",
-                "entryPointArguments": ["{{ ds }}"],
+                "entryPointArguments": ["{{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}"],
             }
         },
         configuration_overrides={
@@ -147,7 +165,7 @@ with DAG(
         Runs `batch_aggregate.py` on EMR Serverless — reads yesterday's full
         bronze partition, computes signal/GPS/status aggregates (mirroring
         `streaming/glue_streaming.py`'s logic minus windowing), writes Parquet
-        to `silver_batch/{aggregate}/date={{ ds }}/`.
+        to `silver_batch/{aggregate}/date={{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}/`.
         """,
 )
     # -------------------------------------------------------------------------
@@ -160,6 +178,9 @@ with DAG(
     task_id="load_to_snowflake",
     conn_id="snowflake_default",
     sql=[
+        "DELETE FROM mobile_coverage.staging.raw_signal_strength_by_operator WHERE process_date = '" + TARGET_DATE + "';",
+        "DELETE FROM mobile_coverage.staging.raw_gps_precision_by_provider WHERE process_date = '" + TARGET_DATE + "';",
+        "DELETE FROM mobile_coverage.staging.raw_status_count WHERE process_date = '" + TARGET_DATE + "';",
         """
         COPY INTO mobile_coverage.staging.raw_signal_strength_by_operator
             (process_date, partition_hour, postal_code, operator, average_signal, _file_name)
@@ -171,7 +192,7 @@ with DAG(
                 $1:"operator"::STRING,
                 $1:"average_signal"::FLOAT,
                 METADATA$FILENAME
-            FROM @mobile_coverage.staging.silver_batch_stage/signal_strength_by_operator/date={{ ds }}/
+            FROM @mobile_coverage.staging.mobile_coverage_stage/signal_strength_by_operator/date={{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}/
         )
         FILE_FORMAT = (TYPE = PARQUET)
         PATTERN = '.*\\\\.parquet'
@@ -188,7 +209,7 @@ with DAG(
                 $1:"average_precision"::FLOAT,
                 $1:"average_satellites"::FLOAT,
                 METADATA$FILENAME
-            FROM @mobile_coverage.staging.silver_batch_stage/gps_precision_by_provider/date={{ ds }}/
+            FROM @mobile_coverage.staging.mobile_coverage_stage/gps_precision_by_provider/date={{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}/
         )
         FILE_FORMAT = (TYPE = PARQUET)
         PATTERN = '.*\\\\.parquet'
@@ -205,7 +226,7 @@ with DAG(
                 $1:"status"::STRING,
                 $1:"status_count"::INTEGER,
                 METADATA$FILENAME
-            FROM @mobile_coverage.staging.silver_batch_stage/status_count/date={{ ds }}/
+            FROM @mobile_coverage.staging.mobile_coverage_stage/status_count/date={{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}/
         )
         FILE_FORMAT = (TYPE = PARQUET)
         PATTERN = '.*\\\\.parquet'
@@ -215,7 +236,7 @@ with DAG(
     doc_md="""
     ### load_to_snowflake
     Loads yesterday's `silver_batch/` Parquet (all three aggregates) into
-    `mobile_coverage.staging` via COPY INTO, scoped to `{{ ds }}` specifically.
+    `mobile_coverage.staging` via COPY INTO, scoped to `{{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}` specifically.
     Reconstructs Hive partition columns (date, partition_hour, postal_code/provider)
     from METADATA$FILENAME since Spark strips them from the actual file content.
     """,
