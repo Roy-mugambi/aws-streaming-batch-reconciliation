@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType
-from pyspark.sql.functions import col, avg, count, to_timestamp, date_format, concat, lit
+from pyspark.sql.functions import col, avg, count, to_timestamp, date_format, concat, lit, explode, split, regexp_replace, from_json
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,7 +60,24 @@ schema = StructType([
     StructField("postal_code", StringType(), True),
 ])
 
-raw_df = spark.read.schema(schema).json(BRONZE_PATH)
+# Firehose concatenates records with no delimiter ({...}{...}{...}), so
+# read.json() would parse only the first object per file and silently drop
+# the rest. Read each file whole, split on the object boundary, then parse.
+# Works for both glued and newline-delimited files.
+raw_text = spark.read.text(BRONZE_PATH, wholetext=True)
+
+raw_df = (
+    raw_text
+    .select(explode(split(regexp_replace(col("value"), r"\}\s*\{", "}\n{"), "\n")).alias("json"))
+    .filter(col("json") != "")
+    .select(from_json(col("json"), schema).alias("r"))
+    .select("r.*")
+)
+
+bronze_count = raw_df.count()
+logger.info(f"Parsed {bronze_count} bronze records for {PROCESS_DATE}")
+if bronze_count == 0:
+    raise ValueError(f"No bronze records parsed for {PROCESS_DATE}")
 record_count = raw_df.count()
 logger.info(f"Read {record_count} raw records for {PROCESS_DATE}")
 
