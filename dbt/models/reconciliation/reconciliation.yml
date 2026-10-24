@@ -1,0 +1,29 @@
+version: 2
+ 
+models:
+  - name: recon_status_count_daily
+    description: >
+      Batch vs streaming event counts per day, postal code and status.
+      Expected gap: events the streaming watermark has not yet released
+      (the last window of the most recent replay).
+    columns:
+      - name: event_date
+        tests: [not_null]
+      - name: recon_status
+        tests:
+          - accepted_values:
+              values: ['match', 'missing_in_streaming', 'missing_in_batch', 'count_mismatch']
+ 
+  - name: recon_daily_summary
+    description: One row per day, the end-of-day reconciliation sheet.
+    tests:
+      # Warn, don't fail: a divergence is a finding to report, not a broken run.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "abs(gap_pct) <= 1"
+          config:
+            severity: warn
+    columns:
+      - name: event_date
+        tests: [unique, not_null]
+  
