@@ -267,18 +267,10 @@ with DAG(
     # streaming aggregates (from Athena over S3) against yesterday's batch
     # aggregates (from Snowflake), compute divergence percentages, write
     # the reconciliation report.
-    reconcile = EmptyOperator(
-        task_id="reconcile",
-        doc_md="""
-        ### reconcile
-        Compares streaming pipeline outputs (Athena, 2-minute windows
-        rolled up to daily) against batch pipeline outputs (Snowflake,
-        aggregated daily). Computes per-metric divergence percentages
-        and writes the report to `reconciliation.divergence_daily`.
-
-        A row is considered divergent if the absolute percentage
-        difference exceeds 1% (configurable per metric).
-        """,
+    refresh_streaming = SQLExecuteQueryOperator(
+        task_id = "refresh_streaming_external_table",
+        conn_id = "snowflake_default",
+        sql = "ALTER EXTERNAL TABLE mobile_coverage.staging.ext_streaming_status_count REFRESH;",
     )
 
     # -------------------------------------------------------------------------
@@ -315,6 +307,6 @@ with DAG(
         >> spark_batch_aggregate
         >> load_to_snowflake
         >> dbt_tasks
-        >> reconcile
+        >> refresh_streaming
         >> refresh_dashboard_cache
     )

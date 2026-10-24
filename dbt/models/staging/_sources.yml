@@ -17,3 +17,7 @@ sources:
         columns:
           - name: process_date
             tests: [not_null]
+      - name: ext_streaming_status_count
+        description: >
+          Glue streaming status_count output, read in place from
+          s3://roy-projects/mobile-network-lab/aggregations/status_count/ (external table).
