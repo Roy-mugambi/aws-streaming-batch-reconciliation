@@ -21,3 +21,7 @@ sources:
         description: >
           Glue streaming status_count output, read in place from
           s3://roy-projects/mobile-network-lab/aggregations/status_count/ (external table).
+      - name: ext_streaming_signal_strength_by_operator
+        description: >
+          Glue streaming signal_strength_by_operator output, read in place from
+          s3://roy-projects/mobile-network-lab/aggregations/signal_strength_by_operator/
