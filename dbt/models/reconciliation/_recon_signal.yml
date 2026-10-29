@@ -1,0 +1,26 @@
+version: 2
+ 
+models:
+  - name: recon_signal_daily
+    description: >
+      Batch vs streaming readings and weighted average signal per day, postal
+      code and operator. Expected: one row off on 2026-10-06 (the reading held
+      by the streaming watermark).
+    columns:
+      - name: event_date
+        tests: [not_null]
+      - name: recon_status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['match', 'mismatch', 'missing_in_streaming', 'missing_in_batch']
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [event_date, postal_code, operator]
+      # Warn per row out of balance, so the run log names how many.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "recon_status = 'match'"
+          config:
+            severity: warn

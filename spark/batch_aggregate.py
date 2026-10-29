@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.functions import sum as spark_sum
 from pyspark.sql.functions import col, avg, count, to_timestamp, date_format, concat, lit, explode, split, regexp_replace, from_json
 
 logging.basicConfig(
@@ -127,7 +128,11 @@ logger.info("Schema parsed and timestamp columns derived")
 signal_strength_df = (
     df_with_timestamp
     .groupBy("postal_code", "operator", "partition_hour")
-    .agg(avg("signal").alias("average_signal"))
+    .agg(
+        avg("signal").alias("average_signal"),
+        spark_sum("signal").alias("sum_signal"),      # sums + counts let any
+        count("signal").alias("count_signal"),        # rollup be exactly weighted
+    )
 )
 
 gps_precision_df = (
@@ -136,6 +141,10 @@ gps_precision_df = (
     .agg(
         avg("precision").alias("average_precision"),
         avg("satellites").alias("average_satellites"),
+        spark_sum("precision").alias("sum_precision"),
+        count("precision").alias("count_precision"),
+        spark_sum("satellites").alias("sum_satellites"),
+        count("satellites").alias("count_satellites"),
     )
 )
 

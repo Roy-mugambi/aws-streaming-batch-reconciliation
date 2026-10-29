@@ -183,7 +183,7 @@ with DAG(
         "DELETE FROM mobile_coverage.staging.raw_status_count WHERE process_date = '" + TARGET_DATE + "';",
         """
         COPY INTO mobile_coverage.staging.raw_signal_strength_by_operator
-            (process_date, partition_hour, postal_code, operator, average_signal, _file_name)
+            (process_date, partition_hour, postal_code, operator, average_signal, sum_signal, count_signal, _file_name)
         FROM (
             SELECT
                 TO_DATE(REGEXP_SUBSTR(METADATA$FILENAME, 'date=([0-9-]+)', 1, 1, 'e', 1)),
@@ -191,6 +191,8 @@ with DAG(
                 REGEXP_SUBSTR(METADATA$FILENAME, 'postal_code=([^/]+)', 1, 1, 'e', 1),
                 $1:"operator"::STRING,
                 $1:"average_signal"::FLOAT,
+                $1:"sum_signal"::NUMBER,
+                $1:"count_signal"::NUMBER,
                 METADATA$FILENAME
             FROM @mobile_coverage.staging.mobile_coverage_stage/signal_strength_by_operator/date={{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}/
         )
@@ -200,7 +202,7 @@ with DAG(
         """,
         """
         COPY INTO mobile_coverage.staging.raw_gps_precision_by_provider
-            (process_date, partition_hour, provider, average_precision, average_satellites, _file_name)
+            (process_date, partition_hour, provider, average_precision, average_satellites, sum_precision, count_precision, sum_satellites, count_satellites, _file_name)
         FROM (
             SELECT
                 TO_DATE(REGEXP_SUBSTR(METADATA$FILENAME, 'date=([0-9-]+)', 1, 1, 'e', 1)),
@@ -208,6 +210,10 @@ with DAG(
                 REGEXP_SUBSTR(METADATA$FILENAME, 'provider=([^/]+)', 1, 1, 'e', 1),
                 $1:"average_precision"::FLOAT,
                 $1:"average_satellites"::FLOAT,
+                $1:"sum_precision"::FLOAT,
+                $1:"count_precision"::NUMBER,
+                $1:"sum_satellites"::FLOAT,
+                $1:"count_satellites"::NUMBER,
                 METADATA$FILENAME
             FROM @mobile_coverage.staging.mobile_coverage_stage/gps_precision_by_provider/date={{ (params.target_date or macros.ds_add(dag_run.run_after | ds, -1)) }}/
         )
@@ -270,7 +276,10 @@ with DAG(
     refresh_streaming = SQLExecuteQueryOperator(
         task_id = "refresh_streaming_external_table",
         conn_id = "snowflake_default",
-        sql = "ALTER EXTERNAL TABLE mobile_coverage.staging.ext_streaming_status_count REFRESH;",
+        sql=[
+    "ALTER EXTERNAL TABLE mobile_coverage.staging.ext_streaming_status_count REFRESH;",
+    "ALTER EXTERNAL TABLE mobile_coverage.staging.ext_streaming_signal_strength_by_operator REFRESH;",
+],
     )
 
     # -------------------------------------------------------------------------
