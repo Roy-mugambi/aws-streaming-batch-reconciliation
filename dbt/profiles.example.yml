@@ -1,0 +1,19 @@
+# Copy to dbt/profiles.yml (gitignored) and fill in the placeholders.
+# The private key path comes from an environment variable so the same file works
+# on your laptop and inside the Airflow containers:
+#   laptop:     export DBT_SNOWFLAKE_PRIVATE_KEY_PATH="$HOME/.snowflake/snowflake_rsa_key.p8"
+#   containers: set in airflow/docker-compose.override.yml
+mobile_coverage:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: <SNOWFLAKE_ACCOUNT_LOCATOR>      # e.g. ab12345.us-east-1
+      user: <SNOWFLAKE_USER>
+      role: MOBILE_COVERAGE_ENGINEER
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('DBT_SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      warehouse: <SNOWFLAKE_WAREHOUSE>
+      database: mobile_coverage
+      schema: analytics
+      threads: 4

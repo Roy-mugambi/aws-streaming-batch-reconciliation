@@ -3,10 +3,14 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Principal": { "AWS": "arn:aws:iam::497675597682:user/0mo22000-s" },
+      "Principal": {
+        "AWS": "<SNOWFLAKE_IAM_USER_ARN from DESC INTEGRATION>"
+      },
       "Action": "sts:AssumeRole",
       "Condition": {
-        "StringEquals": { "sts:ExternalId": "MLC05425_SFCRole=4_tL/1D57xbHRF+7ANf17+tV8z0o4=" }
+        "StringEquals": {
+          "sts:ExternalId": "<SNOWFLAKE_EXTERNAL_ID from DESC INTEGRATION>"
+        }
       }
     }
   ]

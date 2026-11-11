@@ -1,0 +1,21 @@
+# Copy to airflow/airflow_settings.yaml (gitignored). Astro CLI loads it on `astro dev start`.
+# No secrets here: Snowflake authenticates with the mounted key file, AWS with ~/.aws
+# credentials mounted into the containers.
+airflow:
+  connections:
+    - conn_id: snowflake_default
+      conn_type: snowflake
+      conn_login: <SNOWFLAKE_USER>
+      conn_schema: staging
+      conn_extra:
+        account: <SNOWFLAKE_ACCOUNT_LOCATOR>
+        warehouse: <SNOWFLAKE_WAREHOUSE>
+        database: mobile_coverage
+        role: MOBILE_COVERAGE_ENGINEER
+        private_key_file: /usr/local/airflow/snowflake_rsa_key.p8
+    - conn_id: aws_default
+      conn_type: aws
+      conn_extra:
+        region_name: us-east-1
+  pools: []
+  variables: []
